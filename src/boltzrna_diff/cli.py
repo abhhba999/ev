@@ -61,6 +61,58 @@ def build_hariboss(raw: Path, out: Path) -> None:
     click.echo(f"wrote {out} | rows={len(df)} | valid={n_valid}")
 
 
+@data_group.command("download-robin")
+@click.option(
+    "--out",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=Path("data/raw/robin"),
+    show_default=True,
+)
+def download_robin(out: Path) -> None:
+    """Sparse-clone the ROBIN GitHub repo and copy SMM_full_results CSVs."""
+
+    from boltzrna_diff.data.robin import download
+
+    p = download(out)
+    click.echo(f"ROBIN CSVs in {p}")
+
+
+@data_group.command("build-robin")
+@click.option(
+    "--raw",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=Path("data/raw/robin"),
+    show_default=True,
+)
+@click.option(
+    "--out-binary",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=Path("data/processed/robin_binary.parquet"),
+    show_default=True,
+)
+@click.option(
+    "--out-per-target",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=Path("data/processed/robin_per_target.parquet"),
+    show_default=True,
+)
+def build_robin(raw: Path, out_binary: Path, out_per_target: Path) -> None:
+    """Parse ROBIN into BinaryBinderRecord + per-target InteractionRecord parquets."""
+
+    from boltzrna_diff.data.robin import load_binary, load_per_target
+
+    bdf = load_binary(raw)
+    out_binary.parent.mkdir(parents=True, exist_ok=True)
+    bdf.to_parquet(out_binary)
+    click.echo(f"binary → {out_binary} | rows={len(bdf)} | rna_binders={int(bdf['is_rna_binder'].sum())}")
+
+    pdf = load_per_target(raw)
+    pdf.to_parquet(out_per_target)
+    click.echo(
+        f"per-target → {out_per_target} | rows={len(pdf)} | targets={pdf['rna_sequence'].nunique()} | actives={int(pdf['is_active'].sum())}"
+    )
+
+
 @data_group.command("describe")
 @click.argument("parquet", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 def describe(parquet: Path) -> None:
