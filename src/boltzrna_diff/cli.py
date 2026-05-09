@@ -238,6 +238,38 @@ def build_rnamigos2(
     click.echo(f"docking → {out_docking} | rows={len(ddf)}")
 
 
+@data_group.command("build-benchmark")
+@click.option(
+    "--processed",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=Path("data/processed"),
+    show_default=True,
+)
+@click.option(
+    "--out",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=Path("data/processed/rna_rsm_bench_v0.parquet"),
+    show_default=True,
+)
+@click.option(
+    "--methods",
+    multiple=True,
+    default=("scaffold", "family", "binding_site"),
+    show_default=True,
+    help="OOD split methods to materialize (temporal needs deposit_date and is skipped by default)",
+)
+def build_benchmark(processed: Path, out: Path, methods: tuple[str, ...]) -> None:
+    """Merge per-source parquets into the unified RNA-rSM-Bench v0 + OOD splits."""
+
+    from boltzrna_diff.data.benchmark import build
+
+    res = build(processed, out, methods=list(methods))
+    click.echo(f"wrote {out} | rows={len(res.df)}")
+    for kind, by_method in res.splits.items():
+        for m, sr in by_method.items():
+            click.echo(f"  [{kind}/{m}] train={len(sr.train)} val={len(sr.val)} test={len(sr.test)}")
+
+
 @data_group.command("describe")
 @click.argument("parquet", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 def describe(parquet: Path) -> None:

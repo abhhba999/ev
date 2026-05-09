@@ -99,12 +99,13 @@ def _greedy_pack(
     bucket_ids: list[list[str]] = [[], [], []]
     bucket_sz = [0, 0, 0]
     for k in keys:
-        # pick least-full bucket relative to its target capacity
-        order = sorted(range(3), key=lambda i: bucket_sz[i] / max(targets[i], 1))
-        # tie-break with deterministic random
-        order_arr = np.array(order)
-        rng.shuffle(order_arr)
-        chosen = int(order_arr[0])
+        # Pick the bucket with the largest remaining deficit (target - current).
+        # Tie-break deterministically with a per-key random tag so that two
+        # equally-deficient buckets don't always lose to the same one.
+        deficits = [targets[i] - bucket_sz[i] for i in range(3)]
+        max_deficit = max(deficits)
+        candidates = [i for i, d in enumerate(deficits) if d == max_deficit]
+        chosen = int(candidates[rng.integers(0, len(candidates))]) if len(candidates) > 1 else candidates[0]
         bucket_ids[chosen].extend(grouped_ids[k])
         bucket_sz[chosen] += len(grouped_ids[k])
     return SplitResult(train=bucket_ids[0], val=bucket_ids[1], test=bucket_ids[2])
